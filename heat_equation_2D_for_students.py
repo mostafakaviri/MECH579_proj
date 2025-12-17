@@ -88,7 +88,7 @@ class HeatEquation2D:
 
         self.verbose = False
 
-    def set_initial_conditions(self,initial_conditions:Callable[[np.ndarray,np.ndarray],np.ndarray]):
+    def set_initial_conditions(self,initial_conditions:Callable[[np.ndarray,np.ndarray],np.ndarray]): # Not used anywhere
         """Sets the initial condition
 
         Parameters
@@ -99,17 +99,17 @@ class HeatEquation2D:
         """
         self.init_condition = initial_conditions
 
-    def apply_initial_conditions(self):
+    def apply_initial_conditions(self): # Carried out by INTERNAL, not USER
         """Applies the initial condition into self.u"""
         self.u = self.init_condition(self.X,self.Y)
 
-    def reset(self):
+    def reset(self): # Not used anywhere
         """Resets the heat equation"""
         self.apply_initial_conditions()
         self.current_time = 0
         self.steady_state_error = 1E2
 
-    def set_heat_generation(self, heat_generation_function: Callable[[np.ndarray,np.ndarray,float,float,float], np.ndarray],
+    def set_heat_generation(self, heat_generation_function: Callable[[np.ndarray,np.ndarray,float,float,float], np.ndarray], # Carried out by USER, not INTERNAL
                             a: float, b: float, c: float):
         """Sets the heat generation function and associated variables
 
@@ -139,9 +139,9 @@ class HeatEquation2D:
         heat_generation_matrix[iN,jN] /= 2
         heat_generation_matrix[iN,j0] /= 2
         heat_generation_matrix[i0,jN] /= 2
-        self.heat_generation_total = np.sum(np.sum(heat_generation_matrix))
+        self.heat_generation_total = np.sum(np.sum(heat_generation_matrix)) # Numerical Integration of heat generation over the entire volume
 
-    def set_fan_velocity(self, v: float):
+    def set_fan_velocity(self, v: float): # Carried out by USER, not INTERNAL
         """Sets the fan velocity
 
         Parameters
@@ -154,7 +154,7 @@ class HeatEquation2D:
         self.fan_efficiency = self.fan_efficiency_func(self.v)
 
 
-    def h_boundary(self,u: np.ndarray):
+    def h_boundary(self,u: np.ndarray): # Carried out by INTERNAL, not USER
         """Calculates the convective heat transfer coefficient at the boundaries
 
         Parameters
@@ -169,7 +169,7 @@ class HeatEquation2D:
                    (1+(0.492/self.ext_Pr)**(9/16))**(8/27))**2
         return nusselt*self.ext_k/self.dx
 
-    def h_top(self,x: np.ndarray,u):
+    def h_top(self,x: np.ndarray,u): # Carried out by INTERNAL, not USER
         """Calculates the convective heat transfer coefficient from the fan velocity
 
         Parameters
@@ -192,12 +192,12 @@ class HeatEquation2D:
         h = Nux*self.ext_k/(x + 1E-5)
         return h
 
-    def calculate_h(self):
+    def calculate_h(self): # Carried out by INTERNAL, not USER
         """Calculates all necessary convective heat transfer coefficients"""
         self.h_top_values = self.h_top(self.X,self.u)
         self.h_boundary_values = self.h_boundary(self.u)
 
-    def apply_boundary_conditions(self, old_u):
+    def apply_boundary_conditions(self, old_u): # Carried out by INTERNAL, not USER
         """Calculates the change in temperature at the boundary.
 
         Parameters
@@ -279,7 +279,7 @@ class HeatEquation2D:
                          tau * e_dot[iN,jN] / self.k * self.dx * self.dy)
         return
 
-    def step_forward_in_time(self):
+    def step_forward_in_time(self): # Carried out by INTERNAL, not USER
         """Steps forward in time 1 timestep"""
         self.calculate_h()
         old_u = self.u.copy()
@@ -294,7 +294,7 @@ class HeatEquation2D:
         self.steady_state_error = np.linalg.norm(self.u - old_u,np.inf)
         self.current_time += self.dt
 
-    def solve_until_steady_state(self, tol: float = 1e-3):
+    def solve_until_steady_state(self, tol: float = 1e-3): # Carried out by INTERNAL, not USER
         """Solves until steady state is reached
 
         Parameters
@@ -305,6 +305,7 @@ class HeatEquation2D:
         """
         iter = 0
         self.step_forward_in_time()
+        print(f"Iteration starts until steady state !")
         while self.steady_state_error > tol and iter < self.max_iter:
             self.step_forward_in_time()
             iter += 1
@@ -312,7 +313,7 @@ class HeatEquation2D:
                 print(f"Iteration: {iter}, Error: {self.steady_state_error}")
 
 
-    def solve_until_time(self,final_time: float):
+    def solve_until_time(self,final_time: float): # Carried out by INTERNAL, not USER
         """Solves until time is reached
 
         Parameters
@@ -322,6 +323,7 @@ class HeatEquation2D:
         final_time (float): Final time of simulation
         """
         iter = 0
+        print(f"Iteration starts until final time !")
         while self.current_time < final_time:
             self.step_forward_in_time()
             iter += 1
@@ -344,7 +346,7 @@ if __name__ == "__main__":
     c_si = 19.789 / 28.085 * 1000  # J/(kgK)
 
 
-    def initial_condition(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def initial_condition(x: np.ndarray, y: np.ndarray) -> np.ndarray: # u @ t = 0
         r, c = x.shape
         u = np.zeros([r, c])
         ## Cosine Case
@@ -378,6 +380,7 @@ if __name__ == "__main__":
     global_tolerance = 1E-3
 
 
+
     def objective_function(x):
         """Objective Function
 
@@ -396,10 +399,10 @@ if __name__ == "__main__":
 
     ## Bounds for inputs
     bounds = [
-        (0, 30),
-        (-np.inf, np.inf),
-        (-np.inf, np.inf),
-        (0, np.inf),
+        (0, 30), # Fan Velocity
+        (-np.inf, np.inf), # a : coefficient of heat generation
+        (-np.inf, np.inf), # b : coefficient of heat generation
+        (0, np.inf), # c : coefficient of heat generation
     ]
 
     def constraint_one(x):
@@ -419,11 +422,13 @@ if __name__ == "__main__":
     constraints = [
         {'type': 'eq', 'fun': constraint_one},
     ]
+    
     ## Creating the initial guess
     v0 = 10
     x0_heat = 0
     x0 = [v0, x0_heat * 10 ** 5, x0_heat * 10 ** 5, (156250 - 0.02 * x0_heat * 10 ** 5 - 0.02 * x0_heat * 10 ** 5)]
     heq.verbose = False
+
     ## Optimize
     optimization_result = optimize.minimize(
         objective_function,
