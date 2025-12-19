@@ -10,7 +10,9 @@ class HeatEquation2D:
     This class will construct and solve the unsteady heat equation
     with Robin BCs as described in the assignment.
     """
-    def __init__(self, x:float, y:float, height:float , n_x:int, n_y:int,
+    # ------------------------------------- Initialization Methods -------------------------------------
+    # Instance initialization method ... Carried out by USER, not INTERNAL
+    def __init__(self, x:float, y:float, height:float , n_x:int, n_y:int, 
                      k:float=1.0, rho:float=1.0, cp:float=1.0,
                      CFL:float=0.1, init_condition:Callable[[np.ndarray,np.ndarray], np.ndarray] = lambda x,y: np.sin(x+y)):
         """Intializition function for the heat equation
@@ -88,7 +90,8 @@ class HeatEquation2D:
 
         self.verbose = False
 
-    def set_initial_conditions(self,initial_conditions:Callable[[np.ndarray,np.ndarray],np.ndarray]): # Not used anywhere
+    # Set initial conditions(T0) for the problem ... Carried out by USER, not INTERNAL
+    def set_initial_conditions(self,initial_conditions:Callable[[np.ndarray,np.ndarray],np.ndarray]):
         """Sets the initial condition
 
         Parameters
@@ -99,17 +102,20 @@ class HeatEquation2D:
         """
         self.init_condition = initial_conditions
 
-    def apply_initial_conditions(self): # Carried out by INTERNAL, not USER
+    # Called in __init__() ... Carried out by INTERNAL, not USER
+    def apply_initial_conditions(self):
         """Applies the initial condition into self.u"""
         self.u = self.init_condition(self.X,self.Y)
 
-    def reset(self): # Not used anywhere
+    # Reset the problem(clear the last self.u of the previous analysis) ... Carried out by USER, not INTERNAL
+    def reset(self):
         """Resets the heat equation"""
         self.apply_initial_conditions()
         self.current_time = 0
         self.steady_state_error = 1E2
 
-    def set_heat_generation(self, heat_generation_function: Callable[[np.ndarray,np.ndarray,float,float,float], np.ndarray], # Carried out by USER, not INTERNAL
+    # Set heat generation(f(x, y)) over the domain ... Carried out by USER, not INTERNAL
+    def set_heat_generation(self, heat_generation_function: Callable[[np.ndarray,np.ndarray,float,float,float], np.ndarray],
                             a: float, b: float, c: float):
         """Sets the heat generation function and associated variables
 
@@ -127,6 +133,10 @@ class HeatEquation2D:
         self.heat_gen_a = a
         self.heat_gen_b = b
         self.heat_gen_c = c
+        self.heat_generation_function = heat_generation_function
+        self.heat_gen_a = a
+        self.heat_gen_b = b
+        self.heat_gen_c = c
         heat_generation_matrix = self.heat_generation_function(self.X,self.Y,self.heat_gen_a,self.heat_gen_b,self.heat_gen_c) * self.dx * self.dy *self.height
         i0, iN, j0 ,jN = 0, self.n_x - 1, 0 , self.n_y - 1
         # Boundaries with one side
@@ -139,8 +149,9 @@ class HeatEquation2D:
         heat_generation_matrix[iN,jN] /= 2
         heat_generation_matrix[iN,j0] /= 2
         heat_generation_matrix[i0,jN] /= 2
-        self.heat_generation_total = np.sum(np.sum(heat_generation_matrix)) # Numerical Integration of heat generation over the entire volume
+        self.heat_generation_total = np.sum(np.sum(heat_generation_matrix))
 
+    # Set fan velocity ... Carried out by USER, not INTERNAL
     def set_fan_velocity(self, v: float): # Carried out by USER, not INTERNAL
         """Sets the fan velocity
 
@@ -153,8 +164,9 @@ class HeatEquation2D:
         self.v = v
         self.fan_efficiency = self.fan_efficiency_func(self.v)
 
-
-    def h_boundary(self,u: np.ndarray): # Carried out by INTERNAL, not USER
+    # ------------------------------------- B.C-related methods -------------------------------------
+    # Create h_boundary values over the grid points ... Called in calculate_h() ... Carried out by INTERNAL, not USER
+    def h_boundary(self,u: np.ndarray):
         """Calculates the convective heat transfer coefficient at the boundaries
 
         Parameters
@@ -168,7 +180,8 @@ class HeatEquation2D:
         nusselt = (0.825 + (0.387*rayleigh**(1/6))/
                    (1+(0.492/self.ext_Pr)**(9/16))**(8/27))**2
         return nusselt*self.ext_k/self.dx
-
+    
+    # Create h_top values over the grid points ... Called in calculate_h() ... Carried out by INTERNAL, not USER
     def h_top(self,x: np.ndarray,u): # Carried out by INTERNAL, not USER
         """Calculates the convective heat transfer coefficient from the fan velocity
 
@@ -192,12 +205,14 @@ class HeatEquation2D:
         h = Nux*self.ext_k/(x + 1E-5)
         return h
 
+    # Assign h values ... Called in step_forward_in_time() ... Carried out by INTERNAL, not USER
     def calculate_h(self): # Carried out by INTERNAL, not USER
         """Calculates all necessary convective heat transfer coefficients"""
         self.h_top_values = self.h_top(self.X,self.u)
         self.h_boundary_values = self.h_boundary(self.u)
 
-    def apply_boundary_conditions(self, old_u): # Carried out by INTERNAL, not USER
+    # Update u only on the boundary(Assign B.Cs) ... Called in step_forward_in_time() ... Carried out by INTERNAL, not USER
+    def apply_boundary_conditions(self, old_u):
         """Calculates the change in temperature at the boundary.
 
         Parameters
@@ -279,6 +294,8 @@ class HeatEquation2D:
                          tau * e_dot[iN,jN] / self.k * self.dx * self.dy)
         return
 
+    # ------------------------------------- Solve Methods -------------------------------------
+    # Called in both solve methods
     def step_forward_in_time(self): # Carried out by INTERNAL, not USER
         """Steps forward in time 1 timestep"""
         self.calculate_h()
@@ -294,7 +311,8 @@ class HeatEquation2D:
         self.steady_state_error = np.linalg.norm(self.u - old_u,np.inf)
         self.current_time += self.dt
 
-    def solve_until_steady_state(self, tol: float = 1e-3): # Carried out by INTERNAL, not USER
+    # Option 1 : Solve until steady state
+    def solve_until_steady_state(self, tol: float = 1e-3): # Carried out by USER, not INTERNAL
         """Solves until steady state is reached
 
         Parameters
@@ -311,9 +329,10 @@ class HeatEquation2D:
             iter += 1
             if (iter % 1000) == 0 and self.verbose:
                 print(f"Iteration: {iter}, Error: {self.steady_state_error}")
+        print(f"Steady State Reached in {iter} iterations with error {self.steady_state_error} at time {self.current_time} seconds.")
 
-
-    def solve_until_time(self,final_time: float): # Carried out by INTERNAL, not USER
+    # Option 2 : Solve until final time
+    def solve_until_time(self,final_time: float): # Carried out by USER, not INTERNAL
         """Solves until time is reached
 
         Parameters
